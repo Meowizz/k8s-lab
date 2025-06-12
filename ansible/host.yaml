@@ -1,17 +1,8 @@
 all: 
   hosts:
     kube-master:
-      ansible_host: 192.168.56.10
-      host_port: 8080
-      vm_name: master
     kube-worker1:
-      ansible_host: 192.168.56.11
-      host_port: 8081
-      vm_name: worker1
     kube-worker2:
-      ansible_host: 192.168.56.12
-      host_port: 8082
-      vm_name: worker2
   
   children:
     all:
@@ -20,7 +11,7 @@ all:
         kube-worker1:
         kube-worker2:
     
-    k8s-masters:
+    k8s-control-plane:
       hosts:
         kube-master:
     
