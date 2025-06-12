@@ -1,1 +1,2 @@
-ignore ./ansible/inventory.ini
+*.key
+ansible/*/key
