@@ -1,0 +1,43 @@
+---
+- name: Prepare Kubernetes nodes
+  hosts: all
+  become: yes 
+  tasks:
+
+  - name: Disable SELinux (temporary)
+    selinux:
+      state: disabled 
+
+  - name: Stop firewall
+    service:
+      name: firewalld
+      state: stopped
+      enabled: no
+  
+  - name: Add Kubernetes repository
+    yum_repository:
+      name: kubernetes
+      description: Kubernetes repository
+      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+      gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      gpgcheck: yes
+      enabled: yes
+
+  - name: Install required package
+    yum:
+      name:
+        - docker
+        - kubelet
+        - kubeadm
+        - kubectl
+        - bash-complition
+      state: present
+  
+  - name: Enable service
+    systemd:
+      name: "{{ item }}"
+      enabled: yes
+      state: started
+    loop:
+    - docker
+    - kubelet
