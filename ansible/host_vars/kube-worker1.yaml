@@ -1,4 +1,0 @@
-ansible_host: 192.168.56.11
-host_port: 8081
-vm_name: worker1
-ansible_ssh_private_key: "./anisble/group_vars/key/kube-worker2.key"

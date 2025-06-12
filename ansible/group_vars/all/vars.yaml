@@ -1,2 +1,2 @@
-ansible_user: vargant 
+ansible_user: vagrant 
 ansible_port: 22

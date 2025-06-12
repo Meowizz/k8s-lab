@@ -1,4 +1,0 @@
-ansible_host: 192.168.56.10
-host_port: 8080
-vm_name: master
-ansible_ssh_private_key: "./anisble/group_vars/key/kube-master.key"

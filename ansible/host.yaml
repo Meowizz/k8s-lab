@@ -1,22 +1,22 @@
-all: 
+all:
   hosts:
-    kube-master:
-    kube-worker1:
-    kube-worker2:
+    kube_master:
+    kube_worker1:
+    kube_worker2:
   
   children:
-    all:
-      k8s-cluster:
-        kube-master:
-        kube-worker1:
-        kube-worker2:
-    
-    k8s-control-plane:
+    k8s_cluster:
       hosts:
-        kube-master:
+        kube_master:
+        kube_worker1:
+        kube_worker2:
     
-    k8s-workers:
+    k8s_control_plane:
       hosts:
-        kube-worker1:
-        kube-worker2:
+        kube_master:
+    
+    k8s_workers:
+      hosts:
+        kube_worker1:
+        kube_worker2:
 

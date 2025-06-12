@@ -1,0 +1,4 @@
+ansible_host: 192.168.56.10
+host_port: 8080
+vm_name: master
+ansible_ssh_private_key_file: "/home/meowizz/k8s-lab/ansible/group_vars/key/master.key"

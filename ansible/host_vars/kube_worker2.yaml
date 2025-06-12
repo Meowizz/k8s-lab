@@ -1,0 +1,4 @@
+ansible_host: 192.168.56.12
+host_port: 8082
+vm_name: worker2
+ansible_ssh_private_key_file: "/home/meowizz/k8s-lab/ansible/group_vars/key/worker2.key"
