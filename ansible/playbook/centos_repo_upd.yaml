@@ -8,45 +8,36 @@
       - "CentOS-Linux-BaseOS.repo"
       - "CentOS-Linux-Extras.repo"
 
-
   tasks:
-
-  - name: Check OS
-    ansible.builtin.fail:
-      msg: "This playbook work only on CentOS 8"
-    when:
+    - name: Check OS
+      ansible.builtin.fail:
+        msg: "This playbook works only on CentOS 8"
+      when:
         - ansible_distribution != 'CentOS'
         - ansible_distribution_major_version != '8'
-    tags: always
+      tags: always
 
-  - name: Process repositories 
-    block:
+    - name: Process repositories 
+      block:
+        - name: Modify repo files
+          ansible.builtin.replace:
+            path: "/etc/yum.repos.d/{{ item }}"
+            regexp: '(^mirrorlist=)|(^#baseurl=http://mirror.centos.org)'
+            replace: |
+              #mirrorlist=
+              baseurl=http://vault.centos.org
+            backup: yes
+          loop: "{{ centos8_repos }}"
+          register: repo_changes
 
-    - name: Modify repo files
-      ansible.builtin.replace:
-        path: "/etc/yum.repos.d/{{ item }}"
-        regexp: '(^mirrorlist=)|(^#baseurl=http://mirror.centos.org)'
-        loop: "{{ centos8_repos }}"
-          
-          
-        replace: |
-          #mirrorlist=
-          baseurl=http://vault.centos.org
-        backup: yes
-        loop: "{{ centos8_repos }}"
-        register: repo_changes
+        - name: Update cache if changes were made
+          ansible.builtin.command: |
+            dnf clean --all
+            dnf makecache
+          when: repo_changes.changed
 
-    - name: Update chache if changes were made
-      ansible.builtin.command: |
-        dnf clean all
-        dnf makecache
-      when: repo_changes.changed
-
-    rescue:
-      - name: Restore original repos on error
-        ansible.builtin.command: |
-          find /etc/yum.repos.d/ -name "*.repo.bak" | while read f; do
-          mv "$f" "${f%.bak}"
-          done
-        when: "'repo_changes' in vars"
-  
+      rescue:
+        - name: Restore original repos on error
+          ansible.builtin.command: |
+            find /etc/yum.repos.d/ -name "*.repo.bak" -exec mv {} {}.bak \;
+          when: "'repo_changes' in vars"
