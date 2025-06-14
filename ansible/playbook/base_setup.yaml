@@ -2,42 +2,133 @@
 - name: Prepare Kubernetes nodes
   hosts: all
   become: yes 
+  vars:
+    kube_version: "1.29"
+  
   tasks:
 
-  - name: Disable SELinux (temporary)
+# Перевод SELinux в permissive режим. Без полного отключения. 
+# Перезагрузка хоста для того чтобы: гарантировать идемпотентность (т.к. если он в режиме disabled, то permissive mode будет доступен только после перезагрузки
+# для того чтобы kubelet точно мог применять политики)
+# в целом, можно и отключить, но лучше чтобы нарушения политик хотя бы логировались, это будет более безопасно
+  - name: Set SELinux to permissive mode (требования kubeadm)
     selinux:
-      state: disabled 
+      policy: targeted
+      state: permissive
+    notify: Reboot host 
 
+# Лучше для продакшена так не делать, тут хорошо бы настроить политики фаервола, но в случае лабы - можем такое позволить 
   - name: Stop firewall
     service:
       name: firewalld
       state: stopped
       enabled: no
-  
+ # Отключаем swap память до перезагрузки (ухудшает производительность, ошибки планирования)
+  - name: Disable swap immediately
+    command: swapoff -a
+    changed_when: false
+# В файле настроек монтирования дисков удаляем строчки, начинающиеся с *swap, чтобы swap память не включалась после перезагрузки 
+  - name: Disable swap permanently
+    lineinfile:
+      path: /etc/fstab
+      regexp: '^.*swap'
+      state: absent
+
+  - name: Load kernel module br_netfilter
+    modprobe:
+      name: br_netfilter
+      state: present
+
+  - name: Ensure br_netfilter loads on boot
+    copy:
+      dest: /etc/modules-load.d/br_netfilter.conf
+      content: "br_netfilter"
+      mode: 0644
+
+  - name: Configure kernel parametrs 
+    sysctl:
+      name: "{{ item.name }}"
+      value: "{{ item.value }}"
+      state: present
+      reload: yes
+    loop:
+      - { name: net.bridge.bridge-nf-call-iptables, value: 1 }
+      - { name: net.ipv4.ip_forward, value: 1 }
+
   - name: Add Kubernetes repository
     yum_repository:
       name: kubernetes
       description: Kubernetes repository
-      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-      gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      baseurl: "https://pkgs.k8s.io/core:/stable:/v{{ kube_version }}/rpm/"
+      gpgkey: "https://pkgs.k8s.io/core:/stable:/v{{ kube_version }}/rpm/repodata/repomd.xml.key"
+      repo_gpgcheck: yes
       gpgcheck: yes
-      enabled: yes
-
-  - name: Install required package
+  
+  - name: Install Docker prerequisites
     yum:
       name:
-        - docker
-        - kubelet
-        - kubeadm
-        - kubectl
-        - bash-complition
+        - yum-utils
+        - device-mapper-persistent-data
+        - lvm2
       state: present
   
-  - name: Enable service
+  - name: Add Docker CE repo
+    yum_repository:
+      name: docker-ce
+      description: Docker CE
+      baseurl: "https://download.docker.com/linux/centos/{{ ansible_distribution_major_version }}/x86_64/stable"
+      gpgkey: "https://download.docker.com/linux/centos/gpg"
+      gpgcheck: yes
+  
+  - name: Install Docker CE 
+    yum:
+      name:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+      state: present
+
+  - name: Ensure /etc/docker exists
+    file:
+      path: /etc/docker
+      state: directory
+  
+  - name: Configure Docker Daemon
+    copy:
+      dest: /etc/docker/daemon.json
+      content: |
+        {
+          "exec-opts": ["native.cgroupdriver=systemd"],
+          "storage-driver": "overlay2"
+        }
+      mode: 0644
+  
+  - name: Start Docker
     systemd:
-      name: "{{ item }}"
-      enabled: yes
+      name: docker.service
       state: started
-    loop:
-    - docker
-    - kubelet
+      enabled: yes
+
+    
+
+  - name: Install Kubernetes packages
+    yum:
+      name:
+        - kubelet-{{ kube_version }}.0
+        - kubeadm-{{ kube_version }}.0
+        - kubectl-{{ kube_version }}.0
+      state: present
+
+  - meta: flush_handlers
+
+  - name: Wait after Reboot
+    wait_for_connection:
+      delay: 30
+      timeout: 300
+
+  handlers: 
+    - name: Reboot host
+      reboot:
+        msg: "Rebooting to apply SELinux changes"
+        connect_timeout: 5
+      when: ansible_selinux.status != "permissive"
