@@ -1,0 +1,6 @@
+---
+    - name: Reboot host
+      reboot:
+        msg: "Rebooting to apply SELinux changes"
+        connect_timeout: 5
+      when: ansible_selinux.status != "permissive"

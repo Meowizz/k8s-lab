@@ -1,0 +1,3 @@
+---
+# defaults file for base_setup
+kube_version: "1.29"

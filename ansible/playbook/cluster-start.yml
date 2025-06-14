@@ -1,0 +1,6 @@
+---
+- name: Prepare Kubernetes nodes
+  hosts: all
+  become: yes 
+  roles:
+    - base_setup

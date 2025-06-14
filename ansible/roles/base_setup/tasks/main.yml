@@ -1,16 +1,4 @@
 ---
-- name: Prepare Kubernetes nodes
-  hosts: all
-  become: yes 
-  vars:
-    kube_version: "1.29"
-  
-  tasks:
-
-# Перевод SELinux в permissive режим. Без полного отключения. 
-# Перезагрузка хоста для того чтобы: гарантировать идемпотентность (т.к. если он в режиме disabled, то permissive mode будет доступен только после перезагрузки
-# для того чтобы kubelet точно мог применять политики)
-# в целом, можно и отключить, но лучше чтобы нарушения политик хотя бы логировались, это будет более безопасно
   - name: Set SELinux to permissive mode (требования kubeadm)
     selinux:
       policy: targeted
@@ -119,16 +107,7 @@
         - kubectl-{{ kube_version }}.0
       state: present
 
-  - meta: flush_handlers
-
   - name: Wait after Reboot
     wait_for_connection:
       delay: 30
       timeout: 300
-
-  handlers: 
-    - name: Reboot host
-      reboot:
-        msg: "Rebooting to apply SELinux changes"
-        connect_timeout: 5
-      when: ansible_selinux.status != "permissive"
